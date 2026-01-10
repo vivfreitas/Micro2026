@@ -1,5 +1,6 @@
 package org.com.programming.application.controller;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.com.programming.application.feign.LivrosClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +19,7 @@ public class LivrosController {
     }
 
     @GetMapping("/livros")
+    @CircuitBreaker(name = "livrosCB", fallbackMethod = "fallbackLivros")
     public ResponseEntity<List<Object>> teste(){
         List<Object> obj = livrosClient.obterLivrosParaCliente();
         return ResponseEntity.ok(obj);
