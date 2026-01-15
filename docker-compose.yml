@@ -1,0 +1,51 @@
+services:
+  eureka-server:
+    build: ./eureka-service
+    ports:
+      - "8761:8761"                # porta_da_maquina (É uma porta da máquina onde podemos usar no postman ou navegador para conseguirmos fazer a requisição para a -> : porta_do_container -> A porta do container == porta server.port para que a porta da aplicação escute dentro do container
+    networks:
+      - micro-network             # Usando isso permite que cada container se comunique um com outro.
+
+  db:
+    image: mysql:8.0
+    restart: always                # IMPORTANT: Automatically restarts if it fails
+    environment:
+      - MYSQL_DATABASE=micro_db
+      - MYSQL_ROOT_PASSWORD=root
+    networks:
+      - micro-network
+    healthcheck:                   # Tells other services when the DB is REALLY ready, sem ele todos os outros serviços abaixo iram quebrar tentando se conectar.
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  livros-service:
+    build: ./livros-service
+    restart: on-failure            # Restarts if the DB isn't ready yet
+    ports:
+      - "8082:8080"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/ # Quando essa aplicação subir, usa ESSE endereço do Eureka
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/micro_db
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+    depends_on:
+      db:
+        condition: service_healthy # Wait until the DB healthcheck passes
+    networks:
+      - micro-network
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8000"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/ # Port 8761!
+    depends_on:
+      - eureka-server
+    networks:
+      - micro-network
+
+networks:
+  micro-network:
+    driver: bridge
